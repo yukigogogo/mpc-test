@@ -16,6 +16,7 @@ func New() (*Protocol, error) {
 	}
 	return &Protocol{s: s}, nil
 }
+
 func (p *Protocol) Name() string         { return "CGGMP21" }          // 返回协议名
 func (p *Protocol) PublicKeyHex() string { return p.s.PublicKeyHex() } // 返回协议公钥地址
 func (p *Protocol) SignTransfer(msg []byte) (mpcapi.Signature, mpcapi.Transcript, error) {
@@ -27,3 +28,4 @@ func (p *Protocol) Verify(msg []byte, sig mpcapi.Signature) (bool, error) {
 func (p *Protocol) LastMetrics() mpcapi.Metrics   { return p.s.LastMetrics() }           // 返回最近一次签名指标
 func (p *Protocol) StaticProfile() mpcapi.Metrics { return p.s.StaticProfile() }         // 返回静态协议画像
 func (p *Protocol) EncryptedShareExample() string { return p.s.EncryptedShareExample() } // 返回加密份额示例
+

@@ -7,7 +7,9 @@ import (
 
 type Protocol struct{ s *sim.Simulator }
 
+
 // New 构造该协议模拟器，并提供用于前端对比的协议配置。
+
 func New() (*Protocol, error) {
 	s, err := sim.NewSimulator(sim.Config{ProtocolName: "EdDSA-TSS", Rounds: 3, Messages: 5, BytesBase: 1100,
 		Security: mpcapi.SecurityProfile{Assumption: "Ed25519群离散对数", ThresholdSupport: "t-of-n", NonceRequirement: "deterministic+random混合nonce"}})
@@ -27,3 +29,4 @@ func (p *Protocol) Verify(msg []byte, sig mpcapi.Signature) (bool, error) {
 func (p *Protocol) LastMetrics() mpcapi.Metrics   { return p.s.LastMetrics() }           // 返回最近一次签名指标
 func (p *Protocol) StaticProfile() mpcapi.Metrics { return p.s.StaticProfile() }         // 返回静态协议画像
 func (p *Protocol) EncryptedShareExample() string { return p.s.EncryptedShareExample() } // 返回加密份额示例
+

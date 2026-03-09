@@ -42,7 +42,7 @@ type Simulator struct {
 	cfg   Config         // 协议配置
 	share *big.Int       // 演示私钥份额
 	last  mpcapi.Metrics // 最近一次签名指标
-}
+
 
 func mustBig(h string) *big.Int {
 	v, ok := new(big.Int).SetString(h, 16)

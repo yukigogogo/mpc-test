@@ -10,6 +10,7 @@ func TestAllProtocolsSignAndVerify(t *testing.T) {
 		if err != nil {
 			t.Fatalf("new protocol %s: %v", name, err)
 		}
+
 		// 构造每个协议独有消息，避免测试数据完全重复。
 		msg := []byte("transfer-demo-" + name)
 		// 执行签名。
@@ -17,12 +18,16 @@ func TestAllProtocolsSignAndVerify(t *testing.T) {
 		if err != nil {
 			t.Fatalf("sign %s: %v", name, err)
 		}
+
 		// 执行验签。
+
 		ok, err := p.Verify(msg, sig)
 		if err != nil {
 			t.Fatalf("verify %s: %v", name, err)
 		}
+
 		// 验签必须通过，否则协议实现不正确。
+
 		if !ok {
 			t.Fatalf("expected verify ok for %s", name)
 		}
