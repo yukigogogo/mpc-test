@@ -25,12 +25,17 @@ func main() {
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(b)
+		_, _ = w.Write(b)
 	})
 
 	http.HandleFunc("/api/state", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(svc.GetState())
+		_ = json.NewEncoder(w).Encode(svc.GetState())
+	})
+
+	http.HandleFunc("/api/benchmark", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(svc.Benchmark())
 	})
 
 	http.HandleFunc("/api/transfer", func(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +54,7 @@ func main() {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(rec)
+		_ = json.NewEncoder(w).Encode(rec)
 	})
 
 	log.Println("MPC wallet demo running at http://localhost:8080")
