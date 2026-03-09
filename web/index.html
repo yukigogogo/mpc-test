@@ -44,12 +44,23 @@
     <pre id="benchmark" class="fixed-scroll">点击“运行协议对比”后显示结果</pre>
   </div>
 
-  <div class="card">
-    <h3>协议性能 / 网络 / 安全对比结果</h3>
-    <pre id="benchmark">点击“运行协议对比”后显示结果</pre>
-  </div>
-
 <script>
+// 防御性去重：如果因冲突/误合并导致页面中出现多个 id=benchmark 的节点，
+// 只保留第一个，避免“协议性能 / 网络 / 安全对比结果”显示两份。
+(() => {
+  const benchmarkPres = document.querySelectorAll('pre#benchmark');
+  if (benchmarkPres.length > 1) {
+    for (let i = 1; i < benchmarkPres.length; i++) {
+      const card = benchmarkPres[i].closest('.card');
+      if (card && card.parentNode) {
+        card.parentNode.removeChild(card);
+      } else if (benchmarkPres[i].parentNode) {
+        benchmarkPres[i].parentNode.removeChild(benchmarkPres[i]);
+      }
+    }
+  }
+})();
+
 async function refresh() {
   const s = await fetch('/api/state').then(r => r.json());
   document.getElementById('state').textContent = JSON.stringify(s, null, 2);
