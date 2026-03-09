@@ -44,6 +44,11 @@
     <pre id="benchmark" class="fixed-scroll">点击“运行协议对比”后显示结果</pre>
   </div>
 
+  <div class="card">
+    <h3>协议性能 / 网络 / 安全对比结果</h3>
+    <pre id="benchmark">点击“运行协议对比”后显示结果</pre>
+  </div>
+
 <script>
 async function refresh() {
   const s = await fetch('/api/state').then(r => r.json());
