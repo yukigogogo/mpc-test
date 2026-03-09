@@ -9,57 +9,60 @@ import (
 	"time"
 
 	"mpc-test/internal/mpc"
+	"mpc-test/internal/mpcapi"
 )
 
 type TransferRequest struct {
-	To     string `json:"to"`
-	Amount int64  `json:"amount"`
+	To       string `json:"to"`
+	Amount   int64  `json:"amount"`
+	Protocol string `json:"protocol"`
 }
 
 type TransferRecord struct {
-	TxID       string         `json:"txId"`
-	From       string         `json:"from"`
-	To         string         `json:"to"`
-	Amount     int64          `json:"amount"`
-	CreatedAt  time.Time      `json:"createdAt"`
-	Message    string         `json:"message"`
-	Signature  mpc.Signature  `json:"signature"`
-	Transcript mpc.Transcript `json:"transcript"`
-	VerifyOK   bool           `json:"verifyOk"`
+	TxID                   string            `json:"txId"`
+	From                   string            `json:"from"`
+	To                     string            `json:"to"`
+	Amount                 int64             `json:"amount"`
+	CreatedAt              time.Time         `json:"createdAt"`
+	Protocol               string            `json:"protocol"`
+	Message                string            `json:"message"`
+	Signature              mpcapi.Signature  `json:"signature"`
+	Transcript             mpcapi.Transcript `json:"transcript"`
+	VerifyOK               bool              `json:"verifyOk"`
+	EncryptedShareSnapshot string            `json:"encryptedShareSnapshot"`
+	Metrics                mpcapi.Metrics    `json:"metrics"`
 }
 
 type State struct {
-	Address      string           `json:"address"`
-	Balance      int64            `json:"balance"`
-	Accounts     map[string]int64 `json:"accounts"`
-	LastTransfer *TransferRecord  `json:"lastTransfer,omitempty"`
+	AddressByProtocol map[string]string `json:"addressByProtocol"`
+	Balance           int64             `json:"balance"`
+	Accounts          map[string]int64  `json:"accounts"`
+	Protocols         []string          `json:"protocols"`
+	LastTransfer      *TransferRecord   `json:"lastTransfer,omitempty"`
 }
 
 type Service struct {
-	mu      sync.Mutex
-	mpc     *mpc.Protocol
-	address string
-	balance int64
-	ledger  map[string]int64
-	last    *TransferRecord
+	mu       sync.Mutex
+	protocol map[string]mpcapi.Protocol
+	balance  int64
+	ledger   map[string]int64
+	last     *TransferRecord
 }
 
 func NewService() (*Service, error) {
-	proto, err := mpc.NewProtocol()
-	if err != nil {
-		return nil, err
+	protos := map[string]mpcapi.Protocol{}
+	for _, name := range mpc.AvailableProtocols() {
+		p, err := mpc.NewByName(name)
+		if err != nil {
+			return nil, err
+		}
+		protos[name] = p
 	}
-	addr := proto.PublicKeyHex()
-	return &Service{
-		mpc:     proto,
-		address: addr,
-		balance: 1000,
-		ledger: map[string]int64{
-			addr:            1000,
-			"demo-merchant": 0,
-			"alice":         0,
-		},
-	}, nil
+	ledger := map[string]int64{"demo-merchant": 0, "alice": 0}
+	for _, p := range protos {
+		ledger[p.PublicKeyHex()] = 1000
+	}
+	return &Service{protocol: protos, balance: 1000, ledger: ledger}, nil
 }
 
 func (s *Service) GetState() State {
@@ -69,13 +72,16 @@ func (s *Service) GetState() State {
 	for k, v := range s.ledger {
 		copyLedger[k] = v
 	}
-	return State{Address: s.address, Balance: s.balance, Accounts: copyLedger, LastTransfer: s.last}
+	addr := map[string]string{}
+	for name, p := range s.protocol {
+		addr[name] = p.PublicKeyHex()
+	}
+	return State{AddressByProtocol: addr, Balance: s.balance, Accounts: copyLedger, Protocols: mpc.AvailableProtocols(), LastTransfer: s.last}
 }
 
 func (s *Service) Transfer(req TransferRequest) (*TransferRecord, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	if req.Amount <= 0 {
 		return nil, fmt.Errorf("amount 必须大于0")
 	}
@@ -85,41 +91,56 @@ func (s *Service) Transfer(req TransferRequest) (*TransferRecord, error) {
 	if s.balance < req.Amount {
 		return nil, fmt.Errorf("余额不足")
 	}
-
-	msg := fmt.Sprintf("from=%s|to=%s|amount=%d|ts=%d", s.address, req.To, req.Amount, time.Now().UnixNano())
-	sig, transcript, err := s.mpc.SignTransfer([]byte(msg))
-	if err != nil {
-		return nil, err
+	if req.Protocol == "" {
+		req.Protocol = "FROST"
 	}
-	ok, err := mpc.Verify([]byte(msg), s.address, sig)
-	if err != nil {
-		return nil, err
-	}
+	p, ok := s.protocol[req.Protocol]
 	if !ok {
+		return nil, fmt.Errorf("协议不存在: %s", req.Protocol)
+	}
+
+	from := p.PublicKeyHex()
+	msg := fmt.Sprintf("from=%s|to=%s|amount=%d|protocol=%s|ts=%d", from, req.To, req.Amount, req.Protocol, time.Now().UnixNano())
+	sig, transcript, err := p.SignTransfer([]byte(msg))
+	if err != nil {
+		return nil, err
+	}
+	verifyOK, err := p.Verify([]byte(msg), sig)
+	if err != nil {
+		return nil, err
+	}
+	if !verifyOK {
 		return nil, fmt.Errorf("mpc签名校验失败")
 	}
 
 	s.balance -= req.Amount
-	s.ledger[s.address] = s.balance
+	s.ledger[from] = s.balance
 	s.ledger[req.To] += req.Amount
 
 	h := sha256.Sum256([]byte(msg + sig.RHex + sig.SHex))
 	rec := &TransferRecord{
-		TxID:       hex.EncodeToString(h[:]),
-		From:       s.address,
-		To:         req.To,
-		Amount:     req.Amount,
-		CreatedAt:  time.Now(),
-		Message:    msg,
-		Signature:  sig,
-		Transcript: transcript,
-		VerifyOK:   true,
+		TxID: hex.EncodeToString(h[:]), From: from, To: req.To, Amount: req.Amount, CreatedAt: time.Now(),
+		Protocol: req.Protocol, Message: msg, Signature: sig, Transcript: transcript, VerifyOK: true,
+		EncryptedShareSnapshot: p.EncryptedShareExample(), Metrics: p.LastMetrics(),
 	}
 	s.last = rec
 	return rec, nil
 }
 
-func Pretty(v any) string {
-	b, _ := json.MarshalIndent(v, "", "  ")
-	return string(b)
+func (s *Service) Benchmark() []mpcapi.Metrics {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	result := make([]mpcapi.Metrics, 0, len(s.protocol))
+	for _, name := range mpc.AvailableProtocols() {
+		p := s.protocol[name]
+		msg := []byte("benchmark-message")
+		if _, _, err := p.SignTransfer(msg); err == nil {
+			result = append(result, p.LastMetrics())
+		} else {
+			result = append(result, p.StaticProfile())
+		}
+	}
+	return result
 }
+
+func Pretty(v any) string { b, _ := json.MarshalIndent(v, "", "  "); return string(b) }
