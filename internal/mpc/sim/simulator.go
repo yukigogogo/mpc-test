@@ -31,18 +31,18 @@ var (
 )
 
 type Config struct {
-	ProtocolName string
-	Rounds       int
-	Messages     int
-	BytesBase    int
-	Security     mpcapi.SecurityProfile
+	ProtocolName string                 // 协议名（用于展示与指标打点）
+	Rounds       int                    // 估算签名轮次
+	Messages     int                    // 估算消息数
+	BytesBase    int                    // 估算固定网络字节开销
+	Security     mpcapi.SecurityProfile // 协议安全画像
 }
 
 type Simulator struct {
-	cfg   Config
-	share *big.Int
-	last  mpcapi.Metrics
-}
+	cfg   Config         // 协议配置
+	share *big.Int       // 演示私钥份额
+	last  mpcapi.Metrics // 最近一次签名指标
+
 
 func mustBig(h string) *big.Int {
 	v, ok := new(big.Int).SetString(h, 16)
@@ -54,10 +54,12 @@ func mustBig(h string) *big.Int {
 
 func randomScalar() (*big.Int, error) {
 	for {
+		// 在 [0, q) 中采样随机数。
 		x, err := rand.Int(rand.Reader, q)
 		if err != nil {
 			return nil, err
 		}
+		// 排除 0，避免生成无效标量。
 		if x.Sign() > 0 {
 			return x, nil
 		}
@@ -65,6 +67,7 @@ func randomScalar() (*big.Int, error) {
 }
 
 func NewSimulator(cfg Config) (*Simulator, error) {
+	// 初始化“本节点密钥份额”，真实 MPC 中该值来自 DKG。
 	k, err := randomScalar()
 	if err != nil {
 		return nil, err
@@ -79,11 +82,13 @@ func (s *Simulator) PublicKeyHex() string {
 }
 
 func challenge(R, P *big.Int, msg []byte) *big.Int {
+	// 构造挑战 e = H(R || P || msg)。
 	h := sha256.New()
 	h.Write([]byte(hexBig(R)))
 	h.Write([]byte(hexBig(P)))
 	h.Write(msg)
 	e := new(big.Int).SetBytes(h.Sum(nil))
+	// 将哈希映射到群阶 q。
 	e.Mod(e, q)
 	return e
 }
@@ -101,12 +106,17 @@ func (s *Simulator) Sign(msg []byte) (mpcapi.Signature, mpcapi.Transcript, error
 	if err != nil {
 		return mpcapi.Signature{}, mpcapi.Transcript{}, err
 	}
+	// 计算承诺点 R = g^r。
 	R := new(big.Int).Exp(g, r, modP)
+	// 计算公钥 P = g^x（x 为 share）。
 	P := new(big.Int).Exp(g, s.share, modP)
+	// 计算挑战值 e。
 	e := challenge(R, P, msg)
+	// 计算 s = r + e*x (mod q)。
 	sigS := new(big.Int).Mul(e, s.share)
 	sigS.Add(sigS, r).Mod(sigS, q)
 
+	// 按协议配置写入“额外轮次”日志，模拟不同协议复杂度差异。
 	for i := 3; i <= s.cfg.Rounds; i++ {
 		logs = append(logs, fmt.Sprintf("第%d步: 协议执行第%d轮消息交换，用于一致性检查与份额聚合。", i, i-2))
 	}
@@ -116,6 +126,7 @@ func (s *Simulator) Sign(msg []byte) (mpcapi.Signature, mpcapi.Transcript, error
 		fmt.Sprintf("调试信息: s=%s", hexBig(sigS)),
 	)
 
+	// 记录本次签名指标供 Benchmark / 页面展示。
 	s.last = mpcapi.Metrics{
 		Protocol:       s.cfg.ProtocolName,
 		Rounds:         s.cfg.Rounds,
@@ -125,26 +136,34 @@ func (s *Simulator) Sign(msg []byte) (mpcapi.Signature, mpcapi.Transcript, error
 		Security:       s.cfg.Security,
 		Timestamp:      time.Now(),
 	}
+	// 返回统一签名结构和流程日志。
 	return mpcapi.Signature{RHex: hexBig(R), SHex: hexBig(sigS)}, mpcapi.Transcript{ProtocolName: s.cfg.ProtocolName, PublicKeyHex: hexBig(P), RoundLogs: logs}, nil
 }
 
 func (s *Simulator) Verify(msg []byte, sig mpcapi.Signature) (bool, error) {
+	// 解析签名 R 分量。
 	R, err := parseHexInt(sig.RHex)
 	if err != nil {
 		return false, err
 	}
+	// 解析签名 s 分量。
 	S, err := parseHexInt(sig.SHex)
 	if err != nil {
 		return false, err
 	}
+	// 解析公钥 P。
 	P, err := parseHexInt(s.PublicKeyHex())
 	if err != nil {
 		return false, err
 	}
+	// 计算挑战 e = H(R || P || msg)。
 	e := challenge(R, P, msg)
+	// 左边：g^s。
 	left := new(big.Int).Exp(g, S, modP)
+	// 右边：R * P^e。
 	right := new(big.Int).Exp(P, e, modP)
 	right.Mul(right, R).Mod(right, modP)
+	// 对比两边是否相等。
 	return left.Cmp(right) == 0, nil
 }
 
@@ -156,6 +175,7 @@ func (s *Simulator) LastMetrics() mpcapi.Metrics {
 }
 
 func (s *Simulator) StaticProfile() mpcapi.Metrics {
+	// 当没有最新签名时返回配置层面的静态画像。
 	return mpcapi.Metrics{Protocol: s.cfg.ProtocolName, Rounds: s.cfg.Rounds, Messages: s.cfg.Messages, BytesEstimate: s.cfg.BytesBase, Security: s.cfg.Security, Timestamp: time.Now()}
 }
 
@@ -185,6 +205,7 @@ func (s *Simulator) EncryptedShareExample() string {
 }
 
 func parseHexInt(h string) (*big.Int, error) {
+	// hex.DecodeString 需要偶数字符长度，不足时左补 0。
 	if len(h)%2 != 0 {
 		h = "0" + h
 	}
