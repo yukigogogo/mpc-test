@@ -1,15 +1,15 @@
 package frost
 
 import (
-	"mpc-test/internal/mpc/sim"
+	"mpc-test/internal/mpc/real"
 	"mpc-test/internal/mpcapi"
 )
 
-type Protocol struct{ s *sim.Simulator }
+type Protocol struct{ s *real.Runtime }
 
 // New 构造该协议模拟器，并提供用于前端对比的协议配置。
 func New() (*Protocol, error) {
-	s, err := sim.NewSimulator(sim.Config{ProtocolName: "FROST", Rounds: 2, Messages: 4, BytesBase: 900,
+	s, err := real.NewRuntime(real.Config{ProtocolName: "FROST", Rounds: 2, Messages: 4, BytesBase: 900,
 		Security: mpcapi.SecurityProfile{Assumption: "离散对数 + Schnorr", ThresholdSupport: "t-of-n", NonceRequirement: "两阶段nonce承诺，严禁复用"}})
 	if err != nil {
 		return nil, err

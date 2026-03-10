@@ -1,15 +1,15 @@
 package cggmp21
 
 import (
-	"mpc-test/internal/mpc/sim"
+	"mpc-test/internal/mpc/real"
 	"mpc-test/internal/mpcapi"
 )
 
-type Protocol struct{ s *sim.Simulator }
+type Protocol struct{ s *real.Runtime }
 
 // New 构造该协议模拟器，并提供用于前端对比的协议配置。
 func New() (*Protocol, error) {
-	s, err := sim.NewSimulator(sim.Config{ProtocolName: "CGGMP21", Rounds: 6, Messages: 8, BytesBase: 3000,
+	s, err := real.NewRuntime(real.Config{ProtocolName: "CGGMP21", Rounds: 6, Messages: 8, BytesBase: 3000,
 		Security: mpcapi.SecurityProfile{Assumption: "离散对数 + UC安全证明", ThresholdSupport: "t-of-n", NonceRequirement: "并发场景下必须唯一nonce"}})
 	if err != nil {
 		return nil, err

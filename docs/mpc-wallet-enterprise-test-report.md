@@ -35,7 +35,7 @@ mpc-test/
 ├── cmd/protocol-bench/main.go               # 协议对比 benchmark CLI
 ├── scripts/run_protocol_benchmark.sh        # 一键生成 Markdown + CSV
 ├── internal/mpc/protocol.go                 # 协议列表与工厂
-├── internal/mpc/sim/simulator.go            # 模拟签名、验签、指标采集
+├── internal/mpc/real/runtime.go            # 模拟签名、验签、指标采集
 ├── internal/mpc/protocols/*                 # 各协议适配器
 ├── internal/mpcapi/types.go                 # Protocol/Metrics/Transcript 抽象
 ├── internal/wallet/service.go               # 协议化转账与记录
