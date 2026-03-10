@@ -17,11 +17,11 @@
 
 - `internal/mpc/protocols/*`
   - 每个文件定义协议配置（轮次、消息量、字节估算、安全假设）
-  - 签名/验签委托给共享模拟器 `sim.Simulator`
+  - 签名/验签委托给共享模拟器 `real.Runtime`
 
 ## 3. 多节点网络与 DKG
 
-- `internal/mpc/sim/simulator.go`
+- `internal/mpc/real/runtime.go`
   - `type Node`：节点实体（`ID`、`Share`、`PublicKey`、`Paillier*`、`Net`）
   - `type Network`：本地 channel 网络（`Inbox`、`Send`）
   - `NewNetwork(n)` 初始化 n 节点网络

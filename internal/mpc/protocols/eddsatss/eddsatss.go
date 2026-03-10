@@ -1,15 +1,15 @@
 package eddsatss
 
 import (
-	"mpc-test/internal/mpc/sim"
+	"mpc-test/internal/mpc/real"
 	"mpc-test/internal/mpcapi"
 )
 
-type Protocol struct{ s *sim.Simulator }
+type Protocol struct{ s *real.Runtime }
 
 // New 构造该协议模拟器，并提供用于前端对比的协议配置。
 func New() (*Protocol, error) {
-	s, err := sim.NewSimulator(sim.Config{ProtocolName: "EdDSA-TSS", Rounds: 3, Messages: 5, BytesBase: 1100,
+	s, err := real.NewRuntime(real.Config{ProtocolName: "EdDSA-TSS", Rounds: 3, Messages: 5, BytesBase: 1100,
 		Security: mpcapi.SecurityProfile{Assumption: "Ed25519群离散对数", ThresholdSupport: "t-of-n", NonceRequirement: "deterministic+random混合nonce"}})
 	if err != nil {
 		return nil, err

@@ -1,15 +1,15 @@
 package gg20
 
 import (
-	"mpc-test/internal/mpc/sim"
+	"mpc-test/internal/mpc/real"
 	"mpc-test/internal/mpcapi"
 )
 
-type Protocol struct{ s *sim.Simulator }
+type Protocol struct{ s *real.Runtime }
 
 // New 构造该协议模拟器，并提供用于前端对比的协议配置。
 func New() (*Protocol, error) {
-	s, err := sim.NewSimulator(sim.Config{ProtocolName: "GG20", Rounds: 7, Messages: 10, BytesBase: 3400,
+	s, err := real.NewRuntime(real.Config{ProtocolName: "GG20", Rounds: 7, Messages: 10, BytesBase: 3400,
 		Security: mpcapi.SecurityProfile{Assumption: "离散对数 + 优化零知识证明", ThresholdSupport: "t-of-n", NonceRequirement: "需防偏置nonce"}})
 	if err != nil {
 		return nil, err

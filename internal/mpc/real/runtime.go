@@ -1,4 +1,4 @@
-package sim
+package real
 
 import (
 	"crypto/ecdsa"
@@ -174,7 +174,7 @@ type Config struct {
 	Security     mpcapi.SecurityProfile
 }
 
-type Simulator struct {
+type Runtime struct {
 	cfg   Config
 	net   *Network
 	nodes []*Node
@@ -216,13 +216,13 @@ func AggregateShares(shares []*big.Int) *big.Int {
 	return x.Mod(x, curveN)
 }
 
-func NewSimulator(cfg Config) (*Simulator, error) {
+func NewRuntime(cfg Config) (*Runtime, error) {
 	net := NewNetwork(3)
 	nodes := []*Node{{ID: 1, Net: net}, {ID: 2, Net: net}, {ID: 3, Net: net}}
 	for _, nd := range nodes {
 		net.Nodes[nd.ID] = nd
 	}
-	s := &Simulator{cfg: cfg, net: net, nodes: nodes}
+	s := &Runtime{cfg: cfg, net: net, nodes: nodes}
 	if err := s.runDKG(); err != nil {
 		return nil, err
 	}
@@ -230,7 +230,7 @@ func NewSimulator(cfg Config) (*Simulator, error) {
 }
 
 // runDKG 执行本地 3 节点 DKG（Shamir share 分发 + 聚合）。
-func (s *Simulator) runDKG() error {
+func (s *Runtime) runDKG() error {
 	coeffByNode := map[int][]*big.Int{}
 	for _, n := range s.nodes {
 		coeffs, err := RandomPolynomial(2) // t=2
@@ -277,7 +277,7 @@ func (s *Simulator) runDKG() error {
 
 func hexBig(v *big.Int) string { return fmt.Sprintf("%x", v) }
 
-func (s *Simulator) PublicKeyHex() string {
+func (s *Runtime) PublicKeyHex() string {
 	if s.pub == nil {
 		return ""
 	}
@@ -290,7 +290,7 @@ func hashToInt(msg []byte) *big.Int {
 	return e.Mod(e, curveN)
 }
 
-func (s *Simulator) Sign(msg []byte) (mpcapi.Signature, mpcapi.Transcript, error) {
+func (s *Runtime) Sign(msg []byte) (mpcapi.Signature, mpcapi.Transcript, error) {
 	start := time.Now()
 	s.net.resetStats()
 
@@ -311,34 +311,34 @@ func (s *Simulator) Sign(msg []byte) (mpcapi.Signature, mpcapi.Transcript, error
 	}
 }
 
-func (s *Simulator) signGG18(msg []byte, start time.Time) (mpcapi.Signature, mpcapi.Transcript, error) {
+func (s *Runtime) signGG18(msg []byte, start time.Time) (mpcapi.Signature, mpcapi.Transcript, error) {
 	// 现阶段仍使用 ECDSA-like 多轮流程；后续替换为真实 GG18 库调用。
 	return s.signECDSALike(msg, start)
 }
 
-func (s *Simulator) signGG20(msg []byte, start time.Time) (mpcapi.Signature, mpcapi.Transcript, error) {
+func (s *Runtime) signGG20(msg []byte, start time.Time) (mpcapi.Signature, mpcapi.Transcript, error) {
 	// 现阶段仍使用 ECDSA-like 多轮流程；后续替换为真实 GG20 库调用。
 	return s.signECDSALike(msg, start)
 }
 
-func (s *Simulator) signCGGMP21(msg []byte, start time.Time) (mpcapi.Signature, mpcapi.Transcript, error) {
+func (s *Runtime) signCGGMP21(msg []byte, start time.Time) (mpcapi.Signature, mpcapi.Transcript, error) {
 	// 现阶段仍使用 ECDSA-like 多轮流程；后续替换为真实 CGGMP21 库调用。
 	return s.signECDSALike(msg, start)
 }
 
-func (s *Simulator) signFROST(msg []byte, start time.Time) (mpcapi.Signature, mpcapi.Transcript, error) {
+func (s *Runtime) signFROST(msg []byte, start time.Time) (mpcapi.Signature, mpcapi.Transcript, error) {
 	// 现阶段仍使用 Schnorr-like 流程；后续替换为真实 FROST 库调用。
 	return s.signSchnorrLike(msg, start)
 }
 
-func (s *Simulator) signEdDSA(msg []byte, start time.Time) (mpcapi.Signature, mpcapi.Transcript, error) {
+func (s *Runtime) signEdDSA(msg []byte, start time.Time) (mpcapi.Signature, mpcapi.Transcript, error) {
 	// 现阶段仍使用 Schnorr-like 流程；后续替换为真实 EdDSA-TSS 库调用。
 	return s.signSchnorrLike(msg, start)
 }
 
 // signECDSALike 模拟 GG18/GG20/CGGMP21 的“多轮 ECDSA TSS”风格：
 // Round1 nonce commit -> Round2 reveal/aggregate R -> Round3 MtA placeholder -> Round4 partial s_i -> Round5 combine。
-func (s *Simulator) signECDSALike(msg []byte, start time.Time) (mpcapi.Signature, mpcapi.Transcript, error) {
+func (s *Runtime) signECDSALike(msg []byte, start time.Time) (mpcapi.Signature, mpcapi.Transcript, error) {
 	logs := []string{"Round1: 每个节点生成 nonce 承诺 R_i=k_i*G 并广播。"}
 	ks := map[int]*big.Int{}
 	points := map[int][2]*big.Int{}
@@ -449,7 +449,7 @@ func (s *Simulator) signECDSALike(msg []byte, start time.Time) (mpcapi.Signature
 }
 
 // signSchnorrLike 模拟 FROST / EdDSA-TSS 的 Schnorr 风格多方签名。
-func (s *Simulator) signSchnorrLike(msg []byte, start time.Time) (mpcapi.Signature, mpcapi.Transcript, error) {
+func (s *Runtime) signSchnorrLike(msg []byte, start time.Time) (mpcapi.Signature, mpcapi.Transcript, error) {
 	logs := []string{"Round1: 每个节点生成 nonce 并提交承诺。", "Round2: 打开承诺并聚合 R，然后计算挑战 e。"}
 	rs := map[int]*big.Int{}
 	var R *big.Int
@@ -510,7 +510,7 @@ func sha256Digest(msg []byte) []byte {
 	return h[:]
 }
 
-func (s *Simulator) Verify(msg []byte, sig mpcapi.Signature) (bool, error) {
+func (s *Runtime) Verify(msg []byte, sig mpcapi.Signature) (bool, error) {
 	r, err := parseHexInt(sig.RHex)
 	if err != nil {
 		return false, err
@@ -533,18 +533,18 @@ func (s *Simulator) Verify(msg []byte, sig mpcapi.Signature) (bool, error) {
 	return ok, nil
 }
 
-func (s *Simulator) LastMetrics() mpcapi.Metrics {
+func (s *Runtime) LastMetrics() mpcapi.Metrics {
 	if s.last.Protocol == "" {
 		return s.StaticProfile()
 	}
 	return s.last
 }
 
-func (s *Simulator) StaticProfile() mpcapi.Metrics {
+func (s *Runtime) StaticProfile() mpcapi.Metrics {
 	return mpcapi.Metrics{Protocol: s.cfg.ProtocolName, Rounds: s.cfg.Rounds, Messages: s.cfg.Messages, BytesEstimate: s.cfg.BytesBase, Security: s.cfg.Security, Timestamp: time.Now()}
 }
 
-func (s *Simulator) EncryptedShareExample() string {
+func (s *Runtime) EncryptedShareExample() string {
 	if len(s.nodes) == 0 || s.nodes[0].Share == nil {
 		return ""
 	}

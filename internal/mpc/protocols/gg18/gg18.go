@@ -1,16 +1,16 @@
 package gg18
 
 import (
-	"mpc-test/internal/mpc/sim"
+	"mpc-test/internal/mpc/real"
 	"mpc-test/internal/mpcapi"
 )
 
-type Protocol struct{ s *sim.Simulator }
+type Protocol struct{ s *real.Runtime }
 
 // New 构造 GG18 协议模拟器。
 // 配置里包含轮次、消息数、字节估计和安全假设，供页面对比展示。
 func New() (*Protocol, error) {
-	s, err := sim.NewSimulator(sim.Config{ProtocolName: "GG18", Rounds: 9, Messages: 14, BytesBase: 4200,
+	s, err := real.NewRuntime(real.Config{ProtocolName: "GG18", Rounds: 9, Messages: 14, BytesBase: 4200,
 		Security: mpcapi.SecurityProfile{Assumption: "离散对数 + Paillier", ThresholdSupport: "t-of-n", NonceRequirement: "强随机nonce与承诺校验"}})
 	if err != nil {
 		return nil, err
